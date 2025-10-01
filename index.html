@@ -5,12 +5,16 @@
   <title>Speeded Sentence Verification</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- jsPsych v7 CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/dist/jspsych.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/dist/plugin-html-keyboard-response.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/dist/plugin-instructions.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/dist/plugin-fullscreen.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/dist/jspsych.css" />
+  <!-- jsPsych v7 (global build) -->
+  <script src="https://unpkg.com/jspsych@7.3.3/dist/jspsych.js"></script>
+
+  <!-- v7 plugins (global builds) -->
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.2.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-instructions@1.2.0"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-fullscreen@1.2.0"></script>
+
+  <!-- css -->
+  <link rel="stylesheet" href="https://unpkg.com/jspsych@7.3.3/css/jspsych.css" />
 
   <style>
     body { background:#fafafa; }
@@ -40,7 +44,6 @@ const ISI    = 500;      // blank screen between trials (ms)
 
 // Trial list (edit/extend as needed).
 // Include a ground-truth for each statement so accuracy can be computed.
-// NOTE: Replace 'truth' with what you want considered correct (true/false).
 const SENTENCES = [
   { text: "Republicans are white", truth: false, group:"Republicans" },
   { text: "Democrats are black",   truth: false, group:"Democrats" },
@@ -120,7 +123,6 @@ function makeTrial(item){
 
       let correct = false;
       if(key && !fast && !slow){
-        // If they pressed TRUE_KEY, correct iff truth === true; etc.
         if(key === TRUE_KEY)  correct = (item.truth === true);
         if(key === FALSE_KEY) correct = (item.truth === false);
       }
@@ -185,9 +187,6 @@ function finalizeAndRedirect(){
     n_slow: too_slow
   };
 
-  // OPTIONAL: save trialwise CSV locally (client) for download
-  // jsPsych.data.get().localSave('csv', 'sentence_verification_trials.csv');
-
   // Redirect back to Qualtrics with summary
   const params = new URLSearchParams({
     pid: pid,
@@ -200,7 +199,6 @@ function finalizeAndRedirect(){
     map: summary.mapping
   });
 
-  // Replace with your actual Qualtrics return URL (block or end-of-survey URL)
   const qualtricsReturn = "https://bostoncollege.co1.qualtrics.com/jfe/form/SV_dmpqdTV8WxiMs0m";
   window.location.href = `${qualtricsReturn}?${params.toString()}`;
 }

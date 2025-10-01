@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Speeded Sentence Verification</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- jsPsych v7 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/dist/jspsych.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/dist/plugin-html-keyboard-response.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/dist/plugin-instructions.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/dist/plugin-fullscreen.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspsych@7.3.3/dist/jspsych.css" />
+
+  <style>
+    body { background:#fafafa; }
+    .stim { font-size: 36px; font-weight: 600; }
+    .mapping { margin-top: 12px; font-size: 18px; opacity: .8; }
+  </style>
+</head>
+<body></body>
+
+<script>
+/*** --------- Qualtrics params in --------- ***/
+function qp(name) { const u=new URLSearchParams(location.search); return u.get(name) || ""; }
+const pid = qp("pid");   // participant id (e.g., Prolific)
+const rid = qp("rid");   // Qualtrics ResponseID or similar
+
+/*** --------- Task config --------- ***/
+// Keys: counterbalance TRUE/FALSE mapping randomly per participant
+const mappingVersion = Math.random() < 0.5 ? "A" : "B";
+// Version A: TRUE=F, FALSE=J; Version B: TRUE=J, FALSE=F
+const TRUE_KEY  = mappingVersion === "A" ? "f" : "j";
+const FALSE_KEY = mappingVersion === "A" ? "j" : "f";
+
+// Timing windows (ms)
+const MIN_RT = 200;      // responses faster than this are flagged
+const MAX_RT = 5000;     // responses slower than this are flagged/timeout
+const ISI    = 500;      // blank screen between trials (ms)
+
+// Trial list (edit/extend as needed).
+// Include a ground-truth for each statement so accuracy can be computed.
+// NOTE: Replace 'truth' with what you want considered correct (true/false).
+const SENTENCES = [
+  { text: "Republicans are white", truth: false, group:"Republicans" },
+  { text: "Democrats are black",   truth: false, group:"Democrats" },
+  { text: "Republicans are conservative", truth: true, group:"Republicans" },
+  { text: "Democrats are liberal",        truth: true,  group:"Democrats" },
+  // add more items, including clearly true/false fillers to avoid demand
+];
+
+/*** --------- jsPsych init --------- ***/
+const jsPsych = initJsPsych({
+  on_finish: finalizeAndRedirect
+});
+
+// Build randomized trial set (now that jsPsych exists)
+const trials = jsPsych.randomization.shuffle(SENTENCES);
+
+/*** --------- Fullscreen (optional but recommended) --------- ***/
+const fullscreen_enter = {
+  type: jsPsychFullscreen,
+  message: "<p>We’ll switch to fullscreen for better timing.</p>",
+  button_label: "Start",
+  fullscreen_mode: true
+};
+
+/*** --------- Instructions --------- ***/
+const instr = {
+  type: jsPsychInstructions,
+  allow_backward: false,
+  pages: [
+    `<div style="max-width:800px; margin: 0 auto; text-align:left;">
+      <h2>Instructions</h2>
+      <p>You will see short statements (e.g., “Republicans are white”).</p>
+      <p>Your task is to decide whether each statement is <strong>TRUE</strong> or <strong>FALSE</strong> as quickly and accurately as possible.</p>
+      <p>Use the keyboard:</p>
+      <ul>
+        <li><strong>${TRUE_KEY.toUpperCase()}</strong> = TRUE</li>
+        <li><strong>${FALSE_KEY.toUpperCase()}</strong> = FALSE</li>
+      </ul>
+      <p>Please respond quickly. Extremely fast (&lt;${MIN_RT} ms) or slow (&gt;${MAX_RT} ms) responses may not be counted.</p>
+      <p>Press “Next” to begin.</p>
+     </div>`
+  ],
+  show_clickable_nav: true,
+  button_label_next: "Next"
+};
+
+/*** --------- Trial factory --------- ***/
+function makeTrial(item){
+  return {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: () => {
+      return `<div class="stim">${item.text}</div>
+              <div class="mapping">
+                ${TRUE_KEY.toUpperCase()} = TRUE &nbsp;&nbsp;|&nbsp;&nbsp;
+                ${FALSE_KEY.toUpperCase()} = FALSE
+              </div>`;
+    },
+    choices: [TRUE_KEY, FALSE_KEY],
+    stimulus_duration: MAX_RT,
+    trial_duration: MAX_RT,
+    post_trial_gap: ISI,
+    data: {
+      pid: pid,
+      rid: rid,
+      mapping: mappingVersion,
+      true_key: TRUE_KEY,
+      false_key: FALSE_KEY,
+      sentence: item.text,
+      truth: item.truth,
+      group: item.group
+    },
+    on_finish: function(data){
+      const key = data.response || null; // 'f' or 'j' (or null)
+      const rt  = data.rt;               // null if no response
+      const fast = (rt !== null && rt < MIN_RT);
+      const slow = (rt === null || rt > MAX_RT);
+
+      let correct = false;
+      if(key && !fast && !slow){
+        // If they pressed TRUE_KEY, correct iff truth === true; etc.
+        if(key === TRUE_KEY)  correct = (item.truth === true);
+        if(key === FALSE_KEY) correct = (item.truth === false);
+      }
+
+      data.key_pressed = key;
+      data.too_fast = fast;
+      data.too_slow = slow;
+      data.count_for_score = (!fast && !slow && key !== null);
+      data.correct = correct ? 1 : 0;
+    }
+  };
+}
+
+/*** --------- Build timeline --------- ***/
+const main_trials = {
+  timeline: [ makeTrial(jsPsych.timelineVariable('item')) ],
+  timeline_variables: trials.map(t => ({ item: t }))
+};
+
+const timeline = [
+  fullscreen_enter,
+  instr,
+  main_trials
+];
+
+/*** --------- Run --------- ***/
+jsPsych.run(timeline);
+
+/*** --------- Scoring + redirect --------- ***/
+function percentile(arr, p){
+  if(arr.length === 0) return null;
+  const sorted = [...arr].sort((a,b)=>a-b);
+  const idx = (sorted.length - 1) * p;
+  const lower = Math.floor(idx), upper = Math.ceil(idx);
+  if(lower === upper) return sorted[idx];
+  return sorted[lower] + (sorted[upper]-sorted[lower])*(idx-lower);
+}
+
+function finalizeAndRedirect(){
+  const all = jsPsych.data.get().filter({trial_type: "html-keyboard-response"});
+  const usable = all.filter({count_for_score: true});
+  const corrects = usable.filter({correct: 1});
+  const incorrects = usable.filter({correct: 0});
+
+  const acc = usable.count() > 0 ? corrects.count() / usable.count() : 0;
+  const rts_correct = corrects.select("rt").values;
+  const med_rt = rts_correct.length ? percentile(rts_correct, 0.5) : null;
+
+  // Extra diagnostics
+  const too_fast = all.filter({too_fast:true}).count();
+  const too_slow = all.filter({too_slow:true}).count();
+
+  // Pack summary
+  const summary = {
+    mapping: mappingVersion,
+    n_trials: all.count(),
+    n_usable: usable.count(),
+    acc: Number(acc.toFixed(3)),
+    med_rt: med_rt !== null ? Math.round(med_rt) : null,
+    n_incorrect: incorrects.count(),
+    n_fast: too_fast,
+    n_slow: too_slow
+  };
+
+  // OPTIONAL: save trialwise CSV locally (client) for download
+  // jsPsych.data.get().localSave('csv', 'sentence_verification_trials.csv');
+
+  // Redirect back to Qualtrics with summary
+  const params = new URLSearchParams({
+    pid: pid,
+    rid: rid,
+    iat_like_acc: summary.acc,
+    iat_like_rt: summary.med_rt ?? "",
+    iat_like_errs: summary.n_incorrect,
+    iat_like_fast: summary.n_fast,
+    iat_like_slow: summary.n_slow,
+    map: summary.mapping
+  });
+
+  // Replace with your actual Qualtrics return URL (block or end-of-survey URL)
+  const qualtricsReturn = "https://bostoncollege.co1.qualtrics.com/jfe/form/SV_dmpqdTV8WxiMs0m";
+  window.location.href = `${qualtricsReturn}?${params.toString()}`;
+}
+</script>
+</html>

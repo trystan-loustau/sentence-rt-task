@@ -5,15 +5,15 @@
   <title>Speeded Sentence Verification</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- jsPsych v7 core -->
-  <script src="https://unpkg.com/jspsych@7.3.3/dist/jspsych.js"></script>
+  <!-- jsPsych core (UMD build) -->
+  <script src="https://unpkg.com/jspsych@7.3.3/dist/index.umd.js"></script>
 
-  <!-- plugins -->
-  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.2.0"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-instructions@1.2.0"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-fullscreen@1.2.0"></script>
+  <!-- Plugins (UMD builds) -->
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.2.0/dist/index.umd.js"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-instructions@1.2.0/dist/index.umd.js"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-fullscreen@1.2.0/dist/index.umd.js"></script>
 
-  <!-- css -->
+  <!-- CSS -->
   <link rel="stylesheet" href="https://unpkg.com/jspsych@7.3.3/css/jspsych.css" />
 
   <style>
@@ -22,7 +22,6 @@
     .mapping { margin-top: 12px; font-size: 18px; opacity: .8; }
   </style>
 </head>
-
 <body></body>
 
 <script>
@@ -39,18 +38,16 @@ const TRUE_KEY  = mappingVersion === "A" ? "f" : "j";
 const FALSE_KEY = mappingVersion === "A" ? "j" : "f";
 
 // Timing windows (ms)
-const MIN_RT = 200;      // responses faster than this are flagged
-const MAX_RT = 5000;     // responses slower than this are flagged/timeout
-const ISI    = 500;      // blank screen between trials (ms)
+const MIN_RT = 200;
+const MAX_RT = 5000;
+const ISI    = 500;
 
-// Trial list (edit/extend as needed).
-// Include a ground-truth for each statement so accuracy can be computed.
+// Trial list
 const SENTENCES = [
   { text: "Republicans are white", truth: false, group:"Republicans" },
   { text: "Democrats are black",   truth: false, group:"Democrats" },
   { text: "Republicans are conservative", truth: true, group:"Republicans" },
   { text: "Democrats are liberal",        truth: true,  group:"Democrats" },
-  // add more items, including clearly true/false fillers to avoid demand
 ];
 
 /*** --------- jsPsych init --------- ***/
@@ -61,7 +58,7 @@ const jsPsych = initJsPsych({
 // Build randomized trial set (now that jsPsych exists)
 const trials = jsPsych.randomization.shuffle(SENTENCES);
 
-/*** --------- Fullscreen (optional but recommended) --------- ***/
+/*** --------- Fullscreen (optional) --------- ***/
 const fullscreen_enter = {
   type: jsPsychFullscreen,
   message: "<p>We’ll switch to fullscreen for better timing.</p>",
@@ -172,11 +169,9 @@ function finalizeAndRedirect(){
   const rts_correct = corrects.select("rt").values;
   const med_rt = rts_correct.length ? percentile(rts_correct, 0.5) : null;
 
-  // Extra diagnostics
   const too_fast = all.filter({too_fast:true}).count();
   const too_slow = all.filter({too_slow:true}).count();
 
-  // Pack summary
   const summary = {
     mapping: mappingVersion,
     n_trials: all.count(),
@@ -188,7 +183,6 @@ function finalizeAndRedirect(){
     n_slow: too_slow
   };
 
-  // Redirect back to Qualtrics with summary
   const params = new URLSearchParams({
     pid: pid,
     rid: rid,
